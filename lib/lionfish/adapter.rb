@@ -1,6 +1,7 @@
 require 'faraday'
+require 'lionfish'
 
-class Faraday::Adapter::Lionfish < Faraday::Adapter
+class Lionfish::Adapter < Faraday::Adapter
   dependency 'lionfish'
 
   def call(env)

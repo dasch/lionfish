@@ -10,7 +10,7 @@ class FakeService < Sinatra::Base
   end
 end
 
-describe Faraday::Adapter::Lionfish do
+describe Lionfish::Adapter do
   describe ".map" do
     it "pipelines HTTP requests in the block" do
       stub_request(:any, %r(http://example.com/.*)).to_rack(FakeService)
