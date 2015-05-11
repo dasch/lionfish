@@ -24,10 +24,16 @@ describe Faraday::Adapter::Lionfish do
       users = Lionfish.map(user_ids) do |user_id|
         response = connection.get("/users/#{user_id}")
         expect(response.status).to eq 200
-        response.body
+        body1 = response.body
+
+        response = connection.get("/users/#{user_id}")
+        expect(response.status).to eq 200
+        body2 = response.body
+
+        [body1, body2]
       end
 
-      expect(users).to eq %w(1 2 3)
+      expect(users).to eq [["1", "1"], ["2", "2"], ["3", "3"]]
     end
   end
 end

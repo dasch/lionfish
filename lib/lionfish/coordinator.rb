@@ -7,28 +7,50 @@ module Lionfish
 
     def initialize(objects)
       @objects = objects
+      @request_queue = []
+      @blocklist = []
+      @connection = ::Excon.new('http://example.com', persistent: true)
+    end
+
+    def schedule_request(env)
+      @blocklist << Fiber.current
+      @request_queue << [env, Fiber.current]
+
+      value = Fiber.yield
+
+      @blocklist.delete(Fiber.current)
+
+      value
+    end
+
+    def blocked?(worker)
+      @blocklist.include?(worker)
     end
 
     def map(&block)
-      request_envs = []
-      coordinator = Fiber.current
-
       workers = objects.map do |object|
         Fiber.new do
           block.call(object)
         end
       end
 
-      workers.each do |worker|
-        env = worker.resume
-        request_envs << [env, worker] if env
+      @values = {}
+
+      while workers.any?(&:alive?)
+        workers.each do |worker|
+          @values[worker] = worker.resume if worker.alive? && !blocked?(worker)
+        end
+
+        perform_requests! unless @request_queue.empty?
       end
 
-      return unless request_envs.any?
+      workers.map {|worker| @values[worker] }
+    end
 
-      connection = ::Excon.new('http://example.com', persistent: true)
+    def perform_requests!
+      workers = @request_queue.map {|env, worker| worker }
 
-      requests = request_envs.map do |env, worker|
+      requests = @request_queue.map do |env, worker|
         {
           path:    env[:url].path,
           method:  env[:method].to_s.upcase,
@@ -37,10 +59,12 @@ module Lionfish
         }
       end
 
-      responses = connection.requests(requests)
+      @request_queue.clear
 
-      request_envs.zip(responses).map do |(env, worker), response|
-        worker.resume(response)
+      responses = @connection.requests(requests)
+
+      workers.zip(responses).map do |worker, response|
+        @values[worker] = worker.resume(response)
       end
     end
   end

@@ -3,10 +3,11 @@ require 'lionfish/coordinator'
 
 module Lionfish
   def self.request(env)
-    Fiber.yield(env)
+    @coordinator.schedule_request(env)
   end
 
   def self.map(objects, &block)
-    Coordinator.new(objects).map(&block)
+    @coordinator = Coordinator.new(objects)
+    @coordinator.map(&block)
   end
 end
